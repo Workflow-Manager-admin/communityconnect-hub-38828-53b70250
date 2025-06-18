@@ -19,6 +19,7 @@
   font-family: "Inter", "Roboto", Arial, sans-serif;
   display: flex;
   flex-direction: column;
+  animation: fadein 1.1s cubic-bezier(.19,.91,.47,1.19) both;
 }
 
 .cch-main-header {

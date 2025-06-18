@@ -18,47 +18,194 @@
   --cch-text-muted: #bbb;
   --cch-radius: 13px;
   --cch-shadow: 0 4px 12px rgba(0,0,0,0.18);
+
+  --cch-card-fadein: fadein 0.9s cubic-bezier(.17,.88,.57,1.18) both;
+  --cch-icon-glow: 0 0 12px 2px var(--base-light), 0 0 20px 1px var(--primary);
 }
 
 body {
   margin: 0;
   font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
-  background-color: var(--base-dark);
+  background-color: var(--cch-bg, var(--base-dark));
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  animation: fadein 1.25s cubic-bezier(.19,.85,.57,1.12) backwards;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes subtlePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,255,255,0.09);}
+  80%  { box-shadow: 0 0 32px 4px rgba(0,255,255,0.22);}
+  100% { box-shadow: 0 0 0 0 rgba(0,255,255,0.09);}
+}
+
+@keyframes cardPop {
+  from { opacity: 0; transform: scale(.96) translateY(18px);}
+  to   { opacity: 1; transform: scale(1) translateY(0);}
+}
+
+@keyframes tiltwiggle {
+  0% { transform: rotate(-2.2deg) scale(1.04);}
+  33% { transform: rotate(2deg) scale(1.04);}
+  66% { transform: rotate(-1.2deg) scale(1.04);}
+  100% { transform: rotate(0) scale(1);}
 }
 
 .app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Animate fade-in page for routed transitions */
+  animation: fadein 0.95s cubic-bezier(.15,.87,.55,1.13) both;
 }
 
-.navbar {
+.cch-content,
+.cch-section,
+.cch-news-list,
+.cch-navbar,
+.cch-events-list,
+.cch-contact-list {
+  animation: fadein 1.05s cubic-bezier(.17,.88,.38,1.13) both;
+}
+
+.cch-section {
+  animation: cardPop .73s cubic-bezier(.17,.66,.63,1.21) both;
+}
+
+.cch-section-columns .cch-section {
+  animation-delay: .05s;
+}
+
+.cch-section-title {
+  letter-spacing: .7px;
+  /* Fade & slide effect for section title */
+  opacity: 0;
+  animation: fadein .7s cubic-bezier(.23,.91,.58,1.17) .11s forwards;
+}
+
+.cch-section:hover,
+.cch-section:focus-within {
+  box-shadow: 0 6px 18px rgba(0,255,255,0.09), 0 2px 30px rgba(0,0,0,0.26);
+  transition: box-shadow .23s cubic-bezier(.15,.87,.55,1.13);
+  transform: translateY(-2.5px) scale(1.012);
+}
+
+.cch-news-article,
+.cch-event-item,
+.cch-contact-item {
+  transition: box-shadow 0.195s, background 0.19s, transform .16s cubic-bezier(.18,.71,.4,1.17);
+  animation: fadein .82s cubic-bezier(.21,.78,.55,1.13) both;
+}
+
+.cch-news-article:hover,
+.cch-news-article:focus-within,
+.cch-event-item:hover,
+.cch-event-item:focus-within,
+.cch-contact-item:focus-within,
+.cch-contact-item:hover {
+  background: rgba(0,255,255,0.08);
+  box-shadow: 0 0 18px 2px rgba(0,255,255,.11);
+  transform: scale(1.025);
+  z-index: 2;
+}
+
+.cch-news-title,
+.cch-event-title,
+.cch-contact-number:not([tabindex="-1"]) {
+  transition: color .18s, text-decoration .16s;
+}
+
+.cch-news-title:hover,
+.cch-news-title:focus,
+.cch-event-title:hover,
+.cch-event-title:focus,
+.cch-contact-number:hover,
+.cch-contact-number:focus {
+  color: var(--accent);
+  text-decoration: underline;
+  outline: none;
+  filter: brightness(1.18);
+}
+
+.cch-news-meta,
+.cch-event-place,
+.cch-contact-name {
+  user-select: text;
+  cursor: default;
+}
+
+.btn, .btn-large {
+  background-color: var(--base-light);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1.5px 14px 1px rgba(0,255,255,0.09);
+  outline: none;
+  transition: background 0.19s linear, box-shadow .23s cubic-bezier(.21,.99,.43,1.18), transform 0.17s cubic-bezier(.13,.91,.49,1.16);
+  position: relative;
+}
+
+.btn-large {
+  padding: 12px 24px;
+  font-size: 1.1rem;
+}
+
+.btn:active {
+  transform: scale(.96);
+}
+
+.btn:hover,
+.btn:focus {
+  background-color: #00b6c3;
+  box-shadow: 0 0 0 0 var(--base-light),
+              0 0 27px 3px var(--accent);
+  filter: brightness(1.07);
+  outline: none;
+  animation: subtlePulse 1.2s cubic-bezier(.31,.97,.45,1.12);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  background: var(--cch-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cch-border);
+  border-radius: 8px;
+}
+.logo,
+.cch-navbar-logo {
+  transition: filter .22s linear, transform .21s cubic-bezier(.17,.92,.53,1.16);
+  will-change: filter, transform;
+  cursor: pointer;
+}
+
+.logo:hover,
+.logo:focus,
+.cch-navbar-logo:hover,
+.cch-navbar-logo:focus {
+  filter: drop-shadow(0 2px 22px rgba(0, 255, 255, 0.26)) brightness(1.13);
+  animation: tiltwiggle .39s cubic-bezier(.34,1.21,.43,1.13);
+}
+
+.cch-navbar {
   background-color: var(--base-dark);
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-color);
-  position: fixed;
-  top: 0;
-  width: 100%;
-  box-sizing: border-box;
-  z-index: 100;
-}
-
-.logo {
-  font-size: 1.25rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.logo-symbol {
-  color: var(--base-light);
+  animation: fadein 1.15s cubic-bezier(.17,.88,.57,1.18) .08s both;
+  box-shadow: var(--cch-shadow, 0 2px 12px rgba(0,0,0,0.18));
 }
 
 .container {
@@ -77,12 +224,21 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 24px;
+  animation: fadein 0.91s cubic-bezier(.22,.83,.67,1.21) .09s both;
 }
 
 .subtitle {
   color: var(--base-light);
   font-weight: 500;
   font-size: 1.1rem;
+}
+
+/* Improved page fade for hero/landing */
+.title,
+.cch-section-title,
+.cch-home .title {
+  opacity: 0;
+  animation: fadein .8s cubic-bezier(.21,.86,.61,1.08) .13s forwards;
 }
 
 .title {
@@ -98,25 +254,11 @@ body {
   color: var(--text-secondary);
   max-width: 600px;
   margin-bottom: 16px;
+  animation: fadein .8s .23s both;
 }
 
-.btn {
-  background-color: var(--base-light);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 10px 20px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.btn:hover {
-  background-color: #7691ff;
-}
-
-.btn-large {
-  padding: 12px 24px;
-  font-size: 1.1rem;
+/* Add tap highlight for accessibility (darkmode) */
+:focus-visible {
+  outline: 2.8px solid var(--base-light);
+  outline-offset: 2.5px;
 }

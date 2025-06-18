@@ -10,6 +10,7 @@
   top: 0;
   z-index: 101;
   box-shadow: var(--cch-shadow, 0 2px 8px rgba(0,0,0,0.11));
+  animation: fadein 0.8s cubic-bezier(.22,.79,.41,1.18);
 }
 
 .cch-navbar-logo {
@@ -17,6 +18,13 @@
   font-family: "Inter", "Roboto", Arial, sans-serif;
   display: flex;
   align-items: center;
+  cursor: pointer;
+  transition: filter .21s, transform .22s cubic-bezier(.21,.89,.55,1.12);
+}
+
+.cch-navbar-logo:hover, .cch-navbar-logo:focus {
+  filter: drop-shadow(0 1.7px 19px var(--base-light));
+  animation: tiltwiggle .37s cubic-bezier(.42,1.12,.41,1.20);
 }
 
 .cch-navbar-links {
@@ -32,18 +40,25 @@
   font-size: 1.09rem;
   font-weight: 500;
   padding: 5px 0 4.5px 0;
-  transition: color 0.19s;
+  transition: color 0.19s, box-shadow 0.16s, background 0.13s, transform .16s;
   border-bottom: 2.5px solid transparent;
   margin-right: 2px;
+  border-radius: 4px 4px 0 0;
 }
 
 .cch-navbar-link.active {
   color: var(--primary, #dc0000);
   border-bottom: 2.5px solid var(--primary, #dc0000);
+  background: rgba(220,0,0,0.05);
+  box-shadow: 0 2px 14px 2px rgba(220,0,0,0.06);
 }
 
 .cch-navbar-link:hover,
 .cch-navbar-link:focus {
   color: var(--accent, #0000dc);
   text-decoration: underline;
+  outline: none;
+  background: rgba(0,220,255,0.13);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 6px 27px 0 rgba(0,255,255,0.09);
 }
