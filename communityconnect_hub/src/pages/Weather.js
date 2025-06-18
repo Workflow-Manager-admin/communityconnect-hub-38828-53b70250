@@ -1,29 +1,26 @@
 import React, { useEffect, useState } from "react";
 
 /**
- * Weather.js — CommunityConnect Hub (Local Live Weather)
- *
- * Fetches and displays current weather for the user’s location (via the Geolocation API + OpenWeatherMap).
- * Handles all loading, error, and permission-denied states with dark, modern UI.
- * Stays visually consistent with the CommunityConnect Hub dark theme/colors.
+ * Weather.js — CommunityConnect Hub Live Weather Page
+ * 
+ * Fetches current weather from OpenWeatherMap based on user's geolocated position.
+ * Handles permission, error, and loading states, with dark-theme palette.
  */
 
 // PUBLIC_INTERFACE
 function Weather() {
-  /**
-   * Requests location; fetches weather for user’s coordinates, displays result in a dark card.
+  /** 
+   * Prompts for geolocation, retrieves live weather, and renders all UI states per dark theme.
    */
-  const [weatherData, setWeatherData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
-  const [geoDenied, setGeoDenied] = useState(false);
-  const [geoPending, setGeoPending] = useState(true);
-  const [userCoords, setUserCoords] = useState(null);
+  const [coords, setCoords] = useState(null);          // { lat, lon }
+  const [geoStatus, setGeoStatus] = useState("pending"); // "pending", "success", "denied", "unsupported", "error"
+  const [weather, setWeather] = useState(null);        // OpenWeatherMap data
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");              // error string, if any
 
-  // Your OpenWeatherMap API key (DEMO provided for project task)
   const API_KEY = "d0de3aed7ae9465a8c5e0342b340d5fd";
 
-  // Emoji mapping for weather conditions
+  // Map OpenWeather icon/main to simple emoji
   const emojiForWeather = (main, icon = "") => {
     if (icon?.startsWith("01")) return "☀️";
     if (icon?.startsWith("02")) return "🌤️";
@@ -44,74 +41,68 @@ function Weather() {
         return "⛈️";
       case "Snow":
         return "❄️";
-      case "Mist":
-      case "Smoke":
-      case "Haze":
-      case "Dust":
-      case "Fog":
-      case "Sand":
-      case "Ash":
-      case "Squall":
-      case "Tornado":
-        return "🌫️";
       default:
         return "🌈";
     }
   };
 
-  // Try to get user location on mount
+  // Ask user for geolocation on mount
   useEffect(() => {
-    setGeoPending(true);
-    setGeoDenied(false);
-    setWeatherData(null);
-    setFetchError(null);
-    setUserCoords(null);
+    setCoords(null);
+    setGeoStatus("pending");
+    setError("");
+    setWeather(null);
 
-    if (!("geolocation" in navigator)) {
-      setGeoDenied(true);
-      setGeoPending(false);
-      setLoading(false);
+    if (!navigator.geolocation) {
+      setGeoStatus("unsupported");
+      setError("Geolocation is not supported by your browser.");
       return;
     }
-
-    // Request position (high accuracy off for speed)
+    setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserCoords({
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-        });
-        setGeoPending(false);
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        setGeoStatus("success");
       },
       (err) => {
-        setGeoDenied(true);
-        setGeoPending(false);
+        if (
+          err.code === 1 // PERMISSION_DENIED
+        ) {
+          setGeoStatus("denied");
+          setError("Location access denied. Unable to retrieve weather for your area.");
+        } else if (err.code === 2) { // POSITION_UNAVAILABLE
+          setGeoStatus("error");
+          setError("Unable to determine your location (position unavailable).");
+        } else if (err.code === 3) { // TIMEOUT
+          setGeoStatus("error");
+          setError("Location request timed out. Please try again.");
+        } else {
+          setGeoStatus("error");
+          setError("Could not retrieve your location.");
+        }
         setLoading(false);
       },
-      { enableHighAccuracy: false, timeout: 10000 }
+      {
+        enableHighAccuracy: false, 
+        timeout: 10000,
+        maximumAge: 1000,
+      }
     );
   }, []);
 
-  // Fetch OpenWeather data (coordinates => API call)
+  // Fetch weather after coords acquired
   useEffect(() => {
-    if (!userCoords) return;
+    if (!coords || geoStatus !== "success") return;
     setLoading(true);
-    setFetchError(null);
-    setWeatherData(null);
+    setError("");
+    setWeather(null);
 
-    const { lat, lon } = userCoords;
-    const API_URL = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
+    const { lat, lon } = coords;
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
 
-    fetch(API_URL)
+    fetch(url)
       .then((res) => {
-        if (!res.ok) {
-          return res.json().then((err) => {
-            const msg = err?.message
-              ? `OpenWeatherMap: ${err.message}`
-              : "Failed to fetch weather data";
-            throw new Error(msg);
-          });
-        }
+        if (!res.ok) throw new Error("OpenWeatherMap network error");
         return res.json();
       })
       .then((data) => {
@@ -119,146 +110,120 @@ function Weather() {
           throw new Error(
             typeof data?.message === "string"
               ? `OpenWeatherMap: ${data.message}`
-              : "Weather data unavailable"
+              : "Weather data unavailable."
           );
         }
-        setWeatherData(data);
+        setWeather(data);
         setLoading(false);
       })
       .catch((err) => {
-        setFetchError(
+        setError(
           err?.message
             ? String(err.message)
-            : "Unable to fetch local weather. Please try again later."
+            : "Unable to fetch weather. Please try again later."
         );
         setLoading(false);
       });
     // eslint-disable-next-line
-  }, [userCoords]);
+  }, [coords, geoStatus]);
 
-  // ---------- UI Rendering logic ----------
+  // ---------- UI Logic ----------
   let content = null;
-  if (geoPending) {
+  if (geoStatus === "pending" || (loading && !weather)) {
     content = (
-      <div
-        style={{
-          color: "var(--cch-text-muted)",
-          textAlign: "center",
-          margin: "23px 0 15px 0",
-        }}
-      >
-        Detecting your location and loading weather&hellip;
+      <div style={{
+        color: "var(--cch-text-muted)", textAlign: "center", margin: "30px 0"
+      }}>
+        Detecting your location and fetching live weather…
       </div>
     );
-  } else if (geoDenied) {
+  } else if (geoStatus === "unsupported") {
     content = (
-      <div
-        style={{
-          color: "var(--primary, #dc0000)",
-          background: "rgba(220,0,0,0.09)",
-          fontWeight: 600,
-          borderRadius: 8,
-          textAlign: "center",
-          margin: "22px 0 15px 0",
-          padding: "17px 9px",
-          border: "1.2px solid var(--primary, #dc0000)",
-        }}
-      >
-        <span role="img" aria-label="denied" style={{ fontSize: "1.35em", marginRight: 4 }}>
+      <div style={{
+        color: "var(--primary)", fontWeight: 600, background: "rgba(220,0,0,0.1)",
+        borderRadius: 8, textAlign: "center", margin: "24px 0", padding: "16px 10px",
+        border: "1.2px solid var(--primary)"
+      }}>
+        <span role="img" aria-label="denied" style={{ fontSize: "1.27em", marginRight: 6 }}>
           ⚠️
         </span>
-        Location access denied. Unable to retrieve live local weather.
+        Geolocation is not supported on your device.
       </div>
     );
-  } else if (loading) {
+  } else if (geoStatus === "denied") {
     content = (
-      <div
-        style={{
-          color: "var(--cch-text-muted)",
-          textAlign: "center",
-          margin: "22px 0 13px 0",
-        }}
-      >
-        Loading live local weather&hellip;
-      </div>
-    );
-  } else if (fetchError) {
-    content = (
-      <div
-        style={{
-          color: "var(--primary, #dc0000)",
-          background: "rgba(220,0,0,0.07)",
-          fontWeight: 600,
-          borderRadius: 8,
-          textAlign: "center",
-          margin: "18px 0 13px 0",
-          padding: "13px 8px",
-          border: "1.2px solid var(--primary, #dc0000)",
-        }}
-      >
-        <span role="img" aria-label="error" style={{ fontSize: "1.3em", marginRight: 4 }}>
+      <div style={{
+        color: "var(--primary)", fontWeight: 600, background: "rgba(220,0,0,0.09)",
+        borderRadius: 8, textAlign: "center", margin: "26px 0", padding: "17px 11px",
+        border: "1.2px solid var(--primary)"
+      }}>
+        <span role="img" aria-label="denied" style={{ fontSize: "1.3em", marginRight: 6 }}>
           ⚠️
         </span>
-        {fetchError}
+        Location permission denied. Unable to show live weather.
       </div>
     );
-  } else if (weatherData) {
-    // Safe parse fields (OpenWeatherMap JSON)
-    const w = weatherData;
-    const tempC = typeof w.main?.temp === "number" ? Math.round(w.main?.temp) : "--";
-    const tempF =
-      typeof w.main?.temp === "number" ? Math.round(w.main.temp * (9 / 5) + 32) : "--";
+  } else if (geoStatus === "error" && error) {
+    content = (
+      <div style={{
+        color: "var(--primary)", fontWeight: 600, background: "rgba(220,0,0,0.12)",
+        borderRadius: 8, textAlign: "center", margin: "19px 0", padding: "14px 9px",
+        border: "1.2px solid var(--primary)"
+      }}>
+        <span role="img" aria-label="error" style={{ fontSize: "1.23em", marginRight: 5 }}>
+          ⚠️
+        </span>
+        {error}
+      </div>
+    );
+  } else if (error && !weather) {
+    content = (
+      <div style={{
+        color: "var(--primary)", background: "rgba(220,0,0,0.09)", fontWeight: 600,
+        borderRadius: 8, textAlign: "center", margin: "21px 0", padding: "11px 7px",
+        border: "1.2px solid var(--primary)"
+      }}>
+        <span role="img" aria-label="error" style={{ fontSize: "1.22em", marginRight: 4 }}>
+          ⚠️
+        </span>
+        {error}
+      </div>
+    );
+  } else if (weather) {
+    // Defensive access for OWM JSON:
+    const w = weather;
+    const tempC = typeof w.main?.temp === "number" ? Math.round(w.main.temp) : "--";
+    const tempF = typeof w.main?.temp === "number" ? Math.round(w.main.temp * 9/5 + 32) : "--";
     const weatherIcon = emojiForWeather(w.weather?.[0]?.main, w.weather?.[0]?.icon);
     const weatherMain = w.weather?.[0]?.main || "";
     const weatherDesc = w.weather?.[0]?.description
-      ? w.weather[0].description.charAt(0).toUpperCase() +
-        w.weather[0].description.slice(1)
-      : "";
-    const highC =
-      typeof w.main?.temp_max === "number"
-        ? Math.round(w.main?.temp_max)
-        : undefined;
-    const lowC =
-      typeof w.main?.temp_min === "number"
-        ? Math.round(w.main?.temp_min)
-        : undefined;
-    const highF =
-      typeof highC === "number" ? Math.round(highC * (9 / 5) + 32) : undefined;
-    const lowF =
-      typeof lowC === "number" ? Math.round(lowC * (9 / 5) + 32) : undefined;
-    const humidity =
-      typeof w.main?.humidity === "number" ? `${w.main.humidity}%` : "--";
-    const wind =
-      typeof w.wind?.speed === "number"
-        ? `${w.wind.speed} m/s`
-        : "--";
-    const cloudCover =
-      typeof w.clouds?.all === "number" ? `${w.clouds.all}%` : null;
+        ? w.weather[0].description.charAt(0).toUpperCase() + w.weather[0].description.slice(1)
+        : "";
+    const highC = typeof w.main?.temp_max === "number" ? Math.round(w.main?.temp_max) : "--";
+    const lowC = typeof w.main?.temp_min === "number" ? Math.round(w.main?.temp_min) : "--";
+    const highF = highC !== "--" ? Math.round(highC * 9/5 + 32) : "--";
+    const lowF = lowC !== "--" ? Math.round(lowC * 9/5 + 32) : "--";
+    const humidity = typeof w.main?.humidity === "number" ? `${w.main.humidity}%` : "--";
+    const wind = typeof w.wind?.speed === "number" ? `${w.wind.speed} m/s` : "--";
+    const clouds = typeof w.clouds?.all === "number" ? `${w.clouds.all}%` : null;
     const updated =
       w.dt && !isNaN(w.dt)
         ? new Date(w.dt * 1000).toLocaleString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-            day: "numeric",
-            month: "short",
-            year: "numeric",
+            hour: "2-digit", minute: "2-digit", hour12: true,
+            day: "numeric", month: "short", year: "numeric"
           })
         : "";
+    // fallback to display city/country or just 'your area'
     const location =
-      (w.name && typeof w.name === "string" && w.name.length > 0
-        ? w.name
-        : "your area") +
-      (w.sys && typeof w.sys.country === "string"
-        ? ", " + w.sys.country
-        : "");
+      (w.name && typeof w.name === "string" && w.name.length > 0 ? w.name : "your area") +
+      (w.sys && typeof w.sys.country === "string" ? `, ${w.sys.country}` : "");
 
     content = (
       <div className="cch-weather-main">
         <span
           className="cch-weather-icon"
           aria-label="weather icon"
-          style={{ fontSize: "3.0rem", marginRight: 10 }}
+          style={{ fontSize: "2.9rem", marginRight: 12 }}
         >
           {weatherIcon}
         </span>
@@ -272,16 +237,20 @@ function Weather() {
           <div className="cch-weather-desc" style={{ color: "var(--accent)" }}>
             {weatherDesc || weatherMain}
           </div>
-          <div style={{ color: "var(--secondary)", fontSize: "0.97rem", marginTop: 4 }}>
+          <div style={{
+            color: "var(--secondary)", fontSize: "0.97rem", marginTop: 4
+          }}>
             {location}
           </div>
-          <div className="cch-weather-details" style={{ color: "var(--secondary)", gap: 13 }}>
-            {highF !== undefined && (
+          <div className="cch-weather-details" style={{
+            color: "var(--secondary)", gap: 13
+          }}>
+            {highF !== "--" && (
               <span>
                 <b>H:</b> {highF}\u00b0F
               </span>
             )}
-            {lowF !== undefined && (
+            {lowF !== "--" && (
               <span>
                 <b>L:</b> {lowF}\u00b0F
               </span>
@@ -296,19 +265,15 @@ function Weather() {
                 <b>Humidity:</b> {humidity}
               </span>
             )}
-            {cloudCover && (
+            {clouds && (
               <span>
-                <b>Clouds:</b> {cloudCover}
+                <b>Clouds:</b> {clouds}
               </span>
             )}
           </div>
-          <div
-            style={{
-              color: "var(--cch-text-muted)",
-              fontSize: "0.96rem",
-              marginTop: 8,
-            }}
-          >
+          <div style={{
+            color: "var(--cch-text-muted)", fontSize: "0.97em", marginTop: 8,
+          }}>
             Last updated: {updated}
           </div>
         </div>
@@ -316,19 +281,15 @@ function Weather() {
     );
   } else {
     content = (
-      <div
-        style={{
-          color: "var(--cch-text-muted)",
-          textAlign: "center",
-          margin: "17px 0 8px 0",
-        }}
-      >
+      <div style={{
+        color: "var(--cch-text-muted)", textAlign: "center", margin: "19px 0"
+      }}>
         Weather information not available.
       </div>
     );
   }
 
-  // Main render
+  // ---- Main render ----
   return (
     <div className="cch-content" style={{ paddingTop: 50 }}>
       <section
@@ -336,29 +297,26 @@ function Weather() {
         style={{
           maxWidth: 470,
           margin: "0 auto",
-          background: "var(--cch-card, #23243a)",
-          borderRadius: "var(--cch-radius, 13px)",
-          boxShadow: "var(--cch-shadow, 0 4px 12px rgba(0,0,0,0.18))",
-          border: "1.5px solid var(--cch-border, rgba(255,255,255,0.1))",
+          background: "var(--cch-card,#23243a)",
+          borderRadius: "var(--cch-radius,13px)",
+          boxShadow: "var(--cch-shadow,0 4px 12px rgba(0,0,0,0.18))",
+          border: "1.5px solid var(--cch-border,rgba(255,255,255,0.1))"
         }}
       >
-        <h2 className="cch-section-title" style={{ color: "var(--accent, #0000dc)" }}>
+        <h2 className="cch-section-title" style={{ color: "var(--accent,#0000dc)" }}>
           Local Weather
         </h2>
         {content}
-        <div
-          style={{
-            marginTop: 22,
-            textAlign: "right",
-            fontSize: "0.93rem",
-            color: "var(--cch-text-muted)",
-          }}
-        >
+        <div style={{
+          marginTop: 22, textAlign: "right",
+          fontSize: "0.93rem",
+          color: "var(--cch-text-muted)"
+        }}>
           Data powered by{" "}
           <a
             href="https://openweathermap.org/"
             tabIndex={-1}
-            style={{ color: "var(--primary, #dc0000)" }}
+            style={{ color: "var(--primary,#dc0000)" }}
             target="_blank"
             rel="noopener noreferrer"
           >
