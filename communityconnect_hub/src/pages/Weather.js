@@ -18,10 +18,15 @@ function Weather() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");              // error string, if any
 
+  // TODO: To use this app reliably, replace with your own OpenWeatherMap API key and
+  // keep it secure for production!
+  // For demo/testing—avoid usage limits—use a free/test API key as provided.
   const API_KEY = "d0de3aed7ae9465a8c5e0342b340d5fd";
 
   // Map OpenWeather icon/main to simple emoji
+  // PUBLIC_INTERFACE
   const emojiForWeather = (main, icon = "") => {
+    /** Returns an emoji for current weather condition. */
     if (icon?.startsWith("01")) return "☀️";
     if (icon?.startsWith("02")) return "🌤️";
     if (icon?.startsWith("03") || icon?.startsWith("04")) return "☁️";
@@ -46,7 +51,7 @@ function Weather() {
     }
   };
 
-  // Ask user for geolocation on mount
+  // ------------------- GEOLOCATION LOGIC ------------------- //
   useEffect(() => {
     let isMounted = true;
     setCoords(null);
@@ -60,44 +65,51 @@ function Weather() {
       setLoading(false);
       return;
     }
+
     setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (!isMounted) return;
-        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-        setGeoStatus("success");
-        setLoading(false);
-      },
-      (err) => {
-        if (!isMounted) return;
-        if (
-          err.code === 1 // PERMISSION_DENIED
-        ) {
-          setGeoStatus("denied");
-          setError("Location access denied. Unable to retrieve weather for your area.");
-        } else if (err.code === 2) { // POSITION_UNAVAILABLE
-          setGeoStatus("error");
-          setError("Unable to determine your location (position unavailable).");
-        } else if (err.code === 3) { // TIMEOUT
-          setGeoStatus("error");
-          setError("Location request timed out. Please try again.");
-        } else {
-          setGeoStatus("error");
-          setError("Could not retrieve your location.");
+
+    // Defensive: wrap geolocation for browsers throwing immediately.
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (!isMounted) return;
+          setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          setGeoStatus("success");
+          setLoading(false);
+        },
+        (err) => {
+          if (!isMounted) return;
+          if (err.code === 1) {
+            setGeoStatus("denied");
+            setError("Location access denied. Unable to retrieve weather for your area.");
+          } else if (err.code === 2) {
+            setGeoStatus("error");
+            setError("Unable to determine your location (position unavailable).");
+          } else if (err.code === 3) {
+            setGeoStatus("error");
+            setError("Location request timed out. Please try again.");
+          } else {
+            setGeoStatus("error");
+            setError("Could not retrieve your location.");
+          }
+          setLoading(false);
+        },
+        {
+          enableHighAccuracy: false, 
+          timeout: 10000,
+          maximumAge: 1000,
         }
-        setLoading(false);
-      },
-      {
-        enableHighAccuracy: false, 
-        timeout: 10000,
-        maximumAge: 1000,
-      }
-    );
-    // Cleanup if component unmounts
+      );
+    } catch (ex) {
+      setGeoStatus("error");
+      setError("A geolocation error occurred.");
+      setLoading(false);
+    }
+
     return () => { isMounted = false; };
   }, []);
 
-  // Fetch weather after coords acquired
+  // ------------------- WEATHER FETCH ------------------- //
   useEffect(() => {
     let isMounted = true;
     if (!coords || geoStatus !== "success") return;
@@ -107,6 +119,23 @@ function Weather() {
     setWeather(null);
 
     const { lat, lon } = coords;
+
+    // Validate lat/lon
+    if (
+      typeof lat !== "number" ||
+      typeof lon !== "number" ||
+      isNaN(lat) ||
+      isNaN(lon) ||
+      lat < -90 ||
+      lat > 90 ||
+      lon < -180 ||
+      lon > 180
+    ) {
+      setError("Invalid geolocation received. Unable to fetch weather.");
+      setLoading(false);
+      return;
+    }
+
     const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
 
     fetch(url)
@@ -116,13 +145,21 @@ function Weather() {
       })
       .then((data) => {
         if (!isMounted) return;
-        if (!data || data.cod !== 200) {
+        // Defensive checks for shape—prevent false success!
+        if (
+          !data ||
+          data.cod !== 200 ||
+          typeof data.main !== "object" ||
+          !Array.isArray(data.weather) ||
+          typeof data.weather[0] !== "object"
+        ) {
           throw new Error(
             typeof data?.message === "string"
               ? `OpenWeatherMap: ${data.message}`
               : "Weather data unavailable."
           );
         }
+
         setWeather(data);
         setLoading(false);
       })
@@ -135,11 +172,12 @@ function Weather() {
         );
         setLoading(false);
       });
-    // cleanup if component unmounts before fetch finishes
+
     return () => { isMounted = false; };
   }, [coords, geoStatus]);
 
   // ---------- UI Logic ----------
+
   let content = null;
   if (geoStatus === "pending" || (loading && !weather)) {
     content = (
