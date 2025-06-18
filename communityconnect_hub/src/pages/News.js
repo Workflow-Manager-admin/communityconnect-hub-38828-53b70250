@@ -4,36 +4,35 @@ import React, { useEffect, useState } from "react";
  * News.js — CommunityConnect Hub Live News Page (Chennai only)
  *
  * Fetches live news for Chennai from NewsAPI.org using the provided API key.
- * - Uses only q=Chennai in the query (no 'country' parameter).
- * - Passes API key in X-Api-Key header (not as a query param).
- * - When no results, retries once with only q=Chennai, no other params.
- * - Handles NewsAPI errors/diagnostics gracefully and displays message.
- * - All UI states (loading, error, empty, data) are styled for dark theme.
+ * - Uses q=Chennai in the query string and pageSize=12 for full attempt, or just q=Chennai on fallback.
+ * - Passes API key in 'X-Api-Key' header (not as a query param).
+ * - If no articles or an error, retries ONCE with minimal param as recommended by NewsAPI.
+ * - Visibly distinguishes loading, error, empty, and data states, styled for dark theme.
  */
 
 // PUBLIC_INTERFACE
 function News() {
   /**
-   * Fetches and displays live Chennai news using NewsAPI.org and provided API key,
-   * using fetch with X-Api-Key header, robust error + data UI, and modern dark theme.
-   * Implements: error relaying, retry logic, and visually distinct UI for all states.
+   * Fetches and displays live news using NewsAPI.org and provided API key,
+   * robust error and retry logic, visually distinct dark theme for all states.
    */
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [retryUsed, setRetryUsed] = useState(false);
 
-  // NewsAPI key (secure this in production!)
+  // NewsAPI key (hardcoded for demo; secure appropriately in production!)
   const API_KEY = "737e634c6ef84eb4a280c96c4ec7815f";
   const CITY_QUERY = "Chennai";
 
-  // Composable fetch function
+  /**
+   * Core fetch helper for NewsAPI with error extraction and retry flexibility.
+   *
+   * @param {Object} params - { pageSize, retry }
+   * @returns {Promise<{ articles: [], status: string, raw: object }>}
+   */
   // PUBLIC_INTERFACE
   async function fetchNews({ pageSize = 12, retry = false }) {
-    /**
-     * Fetch headlines for Chennai using NewsAPI (X-Api-Key in header), error relay.
-     * If retry, request minimal q=Chennai only (drop pageSize).
-     */
     setLoading(true);
     setFetchError(null);
 
@@ -41,30 +40,29 @@ function News() {
     if (!retry) {
       url += `?q=${encodeURIComponent(CITY_QUERY)}&pageSize=${pageSize}`;
     } else {
-      // Only q=Chennai
+      // Fallback retry: only minimal NewsAPI-supported query
       url += `?q=${encodeURIComponent(CITY_QUERY)}`;
     }
 
     try {
       const response = await fetch(url, {
-        headers: {
-          "X-Api-Key": API_KEY
-        },
+        headers: { "X-Api-Key": API_KEY },
         mode: "cors"
       });
 
-      let json;
+      let json = null;
       try {
         json = await response.json();
-      } catch (e) {
+      } catch (parseErr) {
+        // NewsAPI may send HTML on auth or server issues
         throw new Error("Unable to parse NewsAPI response.");
       }
 
+      // Diagnostic error handling per NewsAPI contract
       if (response.ok && json.status === "ok" && Array.isArray(json.articles)) {
-        // Success but articles might be empty
-        return { articles: json.articles, raw: json };
+        return { articles: json.articles, status: "ok", raw: json };
       } else if (json && json.status === "error" && json.message) {
-        // NewsAPI error (misconfigured API key, limit, etc. or query error)
+        // Relay specific NewsAPI error
         throw new Error(`NewsAPI: ${json.message}`);
       } else if (!response.ok) {
         throw new Error(
@@ -78,7 +76,7 @@ function News() {
     }
   }
 
-  // Effect: attempt fetch on mount, retry with fallback if empty, error relay
+  // ----- Effect: fetch and handle diagnostic logic -----
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -86,7 +84,7 @@ function News() {
     setFetchError(null);
     setRetryUsed(false);
 
-    // First attempt: primary with q=Chennai&pageSize=12
+    // First: try normal query
     fetchNews({ pageSize: 12, retry: false })
       .then(({ articles }) => {
         if (!isMounted) return;
@@ -94,7 +92,7 @@ function News() {
           setArticles(articles);
           setLoading(false);
         } else {
-          // No articles: retry ONCE with plain q=Chennai (no other params)
+          // No news found: attempt fallback with minimal param
           setRetryUsed(true);
           fetchNews({ retry: true })
             .then(({ articles: articles2 }) => {
@@ -115,12 +113,37 @@ function News() {
       })
       .catch((err) => {
         if (!isMounted) return;
-        setFetchError(
-          err && err.message
-            ? err.message
-            : "Unable to load news. Please try again later."
-        );
-        setLoading(false);
+        // Attempt single fallback only in case of some NewsAPI errors (query/config errors), not for severe network issues
+        if (
+          err &&
+          (typeof err.message === "string" &&
+            /newsapi/i.test(err.message) &&
+            !retryUsed)
+        ) {
+          setRetryUsed(true);
+          fetchNews({ retry: true })
+            .then(({ articles: articles2 }) => {
+              if (!isMounted) return;
+              setArticles(Array.isArray(articles2) ? articles2 : []);
+              setLoading(false);
+            })
+            .catch((err2) => {
+              if (!isMounted) return;
+              setFetchError(
+                err2 && err2.message
+                  ? err2.message
+                  : "Unable to fetch news. Please try again later."
+              );
+              setLoading(false);
+            });
+        } else {
+          setFetchError(
+            err && err.message
+              ? err.message
+              : "Unable to load news. Please try again later."
+          );
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -129,10 +152,10 @@ function News() {
     // eslint-disable-next-line
   }, []);
 
-  // ----- UI states -----
+  // ----- UI States -----
   let content = null;
   if (loading) {
-    // LOADING state
+    // LOADING
     content = (
       <div
         style={{
@@ -156,7 +179,7 @@ function News() {
       </div>
     );
   } else if (fetchError) {
-    // ERROR state (handles NewsAPI or network errors)
+    // ERROR (NewsAPI/network shown, red highlight)
     content = (
       <div
         style={{
@@ -189,7 +212,7 @@ function News() {
       </div>
     );
   } else if (Array.isArray(articles) && articles.length === 0) {
-    // EMPTY state (no articles after all attempts)
+    // EMPTY (No news)
     content = (
       <div
         style={{
@@ -205,14 +228,22 @@ function News() {
       >
         No recent news stories found for Chennai.
         {retryUsed && (
-          <span style={{ display: "block", color: "var(--cch-text-muted)", opacity: 0.7, marginTop: 3, fontSize: "0.97em" }}>
+          <span
+            style={{
+              display: "block",
+              color: "var(--cch-text-muted)",
+              opacity: 0.7,
+              marginTop: 3,
+              fontSize: "0.97em",
+            }}
+          >
             (Tried both with and without additional parameters.)
           </span>
         )}
       </div>
     );
   } else if (Array.isArray(articles) && articles.length) {
-    // DATA state: UI for article list
+    // DATA STATE
     content = (
       <ul className="cch-news-list">
         {articles.map((news, idx) => (
