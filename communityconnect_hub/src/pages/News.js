@@ -3,148 +3,87 @@ import React, { useEffect, useState } from "react";
 /**
  * News.js — CommunityConnect Hub Live News Page (Chennai only)
  *
- * Fetches live news for Chennai from NewsAPI.org using the provided API key.
- * - Uses q=Chennai in the query string and pageSize=12 for full attempt, or just q=Chennai on fallback.
- * - Passes API key in 'X-Api-Key' header (not as a query param).
- * - If no articles or an error, retries ONCE with minimal param as recommended by NewsAPI.
- * - Visibly distinguishes loading, error, empty, and data states, styled for dark theme.
+ * Fetches latest news from the local backend proxy at /api/news,
+ * which internally fetches from NewsAPI.org and fixes CORS for frontend delivery.
+ *
+ * ▸ Server endpoint (default for dev):  http://localhost:5000/api/news
+ * ▸ Deployment: update the fetch URL in the code below as needed—
+ *   For production, set this to your deployed backend server address, e.g. 'https://yourdomain.com/api/news'
+ *   If the frontend and backend are served from the same origin, you can use a relative URL: '/api/news'
+ *
+ * The backend should return JSON in NewsAPI format: { status: "ok", articles: [] } or { status: "error", ... }
+ * **No API keys are needed on the frontend; all secrets/API keys are kept on the server.**
+ * Robust loading, error, and data UI is preserved.
  */
 
 // PUBLIC_INTERFACE
 function News() {
   /**
-   * Fetches and displays live news using NewsAPI.org and provided API key,
-   * robust error and retry logic, visually distinct dark theme for all states.
+   * Fetches and displays live news from the backend proxy (no API key required on client).
+   * Visually robust dark theme for all states.
+   *
+   * To adjust backend address for deployment, change API_ENDPOINT below.
    */
+  // === CONFIGURATION FOR END-USERS ===
+  // Use '/api/news' for same-origin or relative proxy (recommended for production).
+  // Change API_ENDPOINT for dev or deployment as needed.
+  const API_ENDPOINT = "http://localhost:5000/api/news";
+  // const API_ENDPOINT = "/api/news"; // ← Uncomment for same-origin deployment
+  
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const [retryUsed, setRetryUsed] = useState(false);
 
-  // NewsAPI key (hardcoded for demo; secure appropriately in production!)
-  const API_KEY = "737e634c6ef84eb4a280c96c4ec7815f";
-  const CITY_QUERY = "Chennai";
-
-  /**
-   * Core fetch helper for NewsAPI with error extraction and retry flexibility.
-   *
-   * @param {Object} params - { pageSize, retry }
-   * @returns {Promise<{ articles: [], status: string, raw: object }>}
-   */
   // PUBLIC_INTERFACE
-  async function fetchNews({ pageSize = 12, retry = false }) {
+  // Fetch Chennai news from proxy server: expects NewsAPI format.
+  async function fetchNews() {
     setLoading(true);
     setFetchError(null);
 
-    let url = "https://newsapi.org/v2/top-headlines";
-    if (!retry) {
-      url += `?q=${encodeURIComponent(CITY_QUERY)}&pageSize=${pageSize}`;
-    } else {
-      // Fallback retry: only minimal NewsAPI-supported query
-      url += `?q=${encodeURIComponent(CITY_QUERY)}`;
-    }
-
     try {
-      const response = await fetch(url, {
-        headers: { "X-Api-Key": API_KEY },
-        mode: "cors"
+      // Sends GET request to backend; CORS must be handled by server.js
+      const response = await fetch(API_ENDPOINT, {
+        method: "GET",
+        // credentials: "include", // Uncomment ONLY if you need cookies
       });
 
+      // Attempt to parse JSON response
       let json = null;
       try {
         json = await response.json();
       } catch (parseErr) {
-        // NewsAPI may send HTML on auth or server issues
-        throw new Error("Unable to parse NewsAPI response.");
+        throw new Error("Could not parse JSON from news server.");
       }
 
-      // Diagnostic error handling per NewsAPI contract
       if (response.ok && json.status === "ok" && Array.isArray(json.articles)) {
-        return { articles: json.articles, status: "ok", raw: json };
-      } else if (json && json.status === "error" && json.message) {
-        // Relay specific NewsAPI error
-        throw new Error(`NewsAPI: ${json.message}`);
-      } else if (!response.ok) {
-        throw new Error(
-          `Network error: ${response.status} ${response.statusText || ""}`.trim()
-        );
+        setArticles(json.articles);
+        setLoading(false);
       } else {
-        throw new Error("Unknown error fetching news.");
+        throw new Error(
+          json && json.message
+            ? String(json.message)
+            : "Server returned an unknown error."
+        );
       }
     } catch (err) {
-      throw err;
+      setArticles([]);
+      setFetchError(
+        err && err.message
+          ? `Unable to fetch news: ${err.message}`
+          : "Unable to fetch news. Please try again later."
+      );
+      setLoading(false);
     }
   }
 
-  // ----- Effect: fetch and handle diagnostic logic -----
+  // ----- Effect: fetch on mount -----
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setArticles([]);
     setFetchError(null);
-    setRetryUsed(false);
 
-    // First: try normal query
-    fetchNews({ pageSize: 12, retry: false })
-      .then(({ articles }) => {
-        if (!isMounted) return;
-        if (Array.isArray(articles) && articles.length > 0) {
-          setArticles(articles);
-          setLoading(false);
-        } else {
-          // No news found: attempt fallback with minimal param
-          setRetryUsed(true);
-          fetchNews({ retry: true })
-            .then(({ articles: articles2 }) => {
-              if (!isMounted) return;
-              setArticles(Array.isArray(articles2) ? articles2 : []);
-              setLoading(false);
-            })
-            .catch((err2) => {
-              if (!isMounted) return;
-              setFetchError(
-                err2 && err2.message
-                  ? err2.message
-                  : "Unable to fetch news. Please try again later."
-              );
-              setLoading(false);
-            });
-        }
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        // Attempt single fallback only in case of some NewsAPI errors (query/config errors), not for severe network issues
-        if (
-          err &&
-          (typeof err.message === "string" &&
-            /newsapi/i.test(err.message) &&
-            !retryUsed)
-        ) {
-          setRetryUsed(true);
-          fetchNews({ retry: true })
-            .then(({ articles: articles2 }) => {
-              if (!isMounted) return;
-              setArticles(Array.isArray(articles2) ? articles2 : []);
-              setLoading(false);
-            })
-            .catch((err2) => {
-              if (!isMounted) return;
-              setFetchError(
-                err2 && err2.message
-                  ? err2.message
-                  : "Unable to fetch news. Please try again later."
-              );
-              setLoading(false);
-            });
-        } else {
-          setFetchError(
-            err && err.message
-              ? err.message
-              : "Unable to load news. Please try again later."
-          );
-          setLoading(false);
-        }
-      });
+    fetchNews();
 
     return () => {
       isMounted = false;
@@ -179,7 +118,7 @@ function News() {
       </div>
     );
   } else if (fetchError) {
-    // ERROR (NewsAPI/network shown, red highlight)
+    // ERROR
     content = (
       <div
         style={{
@@ -212,7 +151,7 @@ function News() {
       </div>
     );
   } else if (Array.isArray(articles) && articles.length === 0) {
-    // EMPTY (No news)
+    // EMPTY
     content = (
       <div
         style={{
@@ -227,19 +166,6 @@ function News() {
         }}
       >
         No recent news stories found for Chennai.
-        {retryUsed && (
-          <span
-            style={{
-              display: "block",
-              color: "var(--cch-text-muted)",
-              opacity: 0.7,
-              marginTop: 3,
-              fontSize: "0.97em",
-            }}
-          >
-            (Tried both with and without additional parameters.)
-          </span>
-        )}
       </div>
     );
   } else if (Array.isArray(articles) && articles.length) {
@@ -361,6 +287,19 @@ function News() {
           >
             NewsAPI.org
           </a>
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: "0.88rem",
+            color: "var(--cch-text-muted)",
+            opacity: 0.67,
+          }}
+        >
+          {/* Deployment note for server endpoint */}
+          <span>
+            (Adjust API endpoint server in <b>News.js</b> for deployment. See comments in code.)
+          </span>
         </div>
       </section>
     </div>
