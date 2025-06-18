@@ -1,11 +1,32 @@
-// ===============================================================
-// Minimal Express.js backend for CommunityConnect Hub
-// Provides a /api/news endpoint (proxy for NewsAPI.org Chennai headlines)
-// - Loads News API key from .env (NEWS_API_KEY), falls back to demo key if not set
-// - Sets CORS headers for frontend access (dev/localhost)
-// - Robust error handling for NewsAPI/network failures
-// - Returns NewsAPI JSON or HTTP 502/500
-// ===============================================================
+/**
+ * ===============================================================
+ * Minimal Express.js backend for CommunityConnect Hub
+ * Provides a /api/news endpoint (proxy for NewsAPI.org Chennai headlines)
+ * - Loads News API key from .env (NEWS_API_KEY), falls back to demo key if not set
+ * - Sets CORS headers for frontend access (dev/localhost)
+ * - Robust error handling for NewsAPI/network failures
+ * - Returns NewsAPI JSON or HTTP 502/500
+ * 
+ * --------------------------- IMPORTANT ---------------------------
+ * To use NewsAPI LIVE functionality, you must:
+ * 
+ * 1. In your `communityconnect_hub/.env` file, add or update the line:
+ * 
+ *    NEWS_API_KEY=737e634c6ef84eb4a280c96c4ec7815f
+ * 
+ * 2. Save the file. (If creating anew, the .env should be in the same folder as this server.js.)
+ * 
+ * 3. Restart your backend with:
+ *    node server.js
+ *    (Or use: npx nodemon server.js)
+ * 
+ *    If running with npm start, make sure you set the correct script.
+ * 
+ * If the NEWS_API_KEY is not set in .env, the server will fallback to a demo key (limited quota).
+ * -----------------------------------------------------------------
+ * Never commit your .env file with a real API key to a public repo.
+ * ===============================================================
+ */
 
 const express = require("express");
 const cors = require("cors");
