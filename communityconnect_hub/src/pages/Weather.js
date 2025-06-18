@@ -1,38 +1,29 @@
 import React, { useEffect, useState } from "react";
 
 /**
- * Weather.js — CommunityConnect Hub (Chennai Weather)
+ * Weather.js — CommunityConnect Hub (Local Live Weather)
  *
- * This component fetches and displays the current weather in Chennai using the OpenWeatherMap API.
- * - Robust error handling for user-facing experience (loading | error | success).
- * - Dark theme, with branding color highlights: #dc0000 (primary), #00dc00 (secondary), #0000dc (accent).
- * - INSTRUCTIONS: Place your OpenWeatherMap API KEY below where marked.
- *   You can sign up free for an API key at: https://openweathermap.org/api
- *   (If you use the default demo key, results are limited and unreliable.)
- *
- * Style classes use the CommunityConnect Hub's dark card/layout system.
+ * Fetches and displays current weather for the user’s location (via the Geolocation API + OpenWeatherMap).
+ * Handles all loading, error, and permission-denied states with dark, modern UI.
+ * Stays visually consistent with the CommunityConnect Hub dark theme/colors.
  */
 
 // PUBLIC_INTERFACE
 function Weather() {
   /**
-   * Main Weather display for Chennai. Handles fetch, parses, and displays weather in a presentable card.
+   * Requests location; fetches weather for user’s coordinates, displays result in a dark card.
    */
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [geoDenied, setGeoDenied] = useState(false);
+  const [geoPending, setGeoPending] = useState(true);
+  const [userCoords, setUserCoords] = useState(null);
 
-  // 1. ======== PLACE YOUR API KEY BELOW ================
-  // Create your free key at https://openweathermap.org/api
-  // For best experience, REPLACE THE STRING below with your own OpenWeatherMap API key.
-  const API_KEY = "YOUR_API_KEY_HERE"; // <--- PUT YOUR API KEY HERE
-  // =====================================================
-  const CITY = "Chennai";
-  const API_URL = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-    CITY
-  )}&appid=${API_KEY}&units=metric`;
+  // Your OpenWeatherMap API key (DEMO provided for project task)
+  const API_KEY = "d0de3aed7ae9465a8c5e0342b340d5fd";
 
-  // Emoji mapping for weather conditions based on OpenWeatherMap icon code or weather "main"
+  // Emoji mapping for weather conditions
   const emojiForWeather = (main, icon = "") => {
     if (icon?.startsWith("01")) return "☀️";
     if (icon?.startsWith("02")) return "🌤️";
@@ -68,26 +59,52 @@ function Weather() {
     }
   };
 
+  // Try to get user location on mount
   useEffect(() => {
+    setGeoPending(true);
+    setGeoDenied(false);
+    setWeatherData(null);
+    setFetchError(null);
+    setUserCoords(null);
+
+    if (!("geolocation" in navigator)) {
+      setGeoDenied(true);
+      setGeoPending(false);
+      setLoading(false);
+      return;
+    }
+
+    // Request position (high accuracy off for speed)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+        });
+        setGeoPending(false);
+      },
+      (err) => {
+        setGeoDenied(true);
+        setGeoPending(false);
+        setLoading(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+  }, []);
+
+  // Fetch OpenWeather data (coordinates => API call)
+  useEffect(() => {
+    if (!userCoords) return;
     setLoading(true);
     setFetchError(null);
     setWeatherData(null);
 
-    // Defensive: Don't attempt API fetch if API_KEY missing.
-    if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
-      setTimeout(() => {
-        setFetchError(
-          "No OpenWeatherMap API key provided! Please add your API key above in Weather.js."
-        );
-        setLoading(false);
-      }, 350);
-      return;
-    }
+    const { lat, lon } = userCoords;
+    const API_URL = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
 
     fetch(API_URL)
       .then((res) => {
         if (!res.ok) {
-          // Try to parse error from OpenWeatherMap API
           return res.json().then((err) => {
             const msg = err?.message
               ? `OpenWeatherMap: ${err.message}`
@@ -98,7 +115,6 @@ function Weather() {
         return res.json();
       })
       .then((data) => {
-        // OpenWeatherMap will return .cod !== 200 for errors
         if (!data || data.cod !== 200) {
           throw new Error(
             typeof data?.message === "string"
@@ -110,20 +126,51 @@ function Weather() {
         setLoading(false);
       })
       .catch((err) => {
-        // Robust error message for user
         setFetchError(
           err?.message
             ? String(err.message)
-            : "Unable to fetch weather for Chennai. Please try again later."
+            : "Unable to fetch local weather. Please try again later."
         );
         setLoading(false);
       });
     // eslint-disable-next-line
-  }, []);
+  }, [userCoords]);
 
   // ---------- UI Rendering logic ----------
   let content = null;
-  if (loading) {
+  if (geoPending) {
+    content = (
+      <div
+        style={{
+          color: "var(--cch-text-muted)",
+          textAlign: "center",
+          margin: "23px 0 15px 0",
+        }}
+      >
+        Detecting your location and loading weather&hellip;
+      </div>
+    );
+  } else if (geoDenied) {
+    content = (
+      <div
+        style={{
+          color: "var(--primary, #dc0000)",
+          background: "rgba(220,0,0,0.09)",
+          fontWeight: 600,
+          borderRadius: 8,
+          textAlign: "center",
+          margin: "22px 0 15px 0",
+          padding: "17px 9px",
+          border: "1.2px solid var(--primary, #dc0000)",
+        }}
+      >
+        <span role="img" aria-label="denied" style={{ fontSize: "1.35em", marginRight: 4 }}>
+          ⚠️
+        </span>
+        Location access denied. Unable to retrieve live local weather.
+      </div>
+    );
+  } else if (loading) {
     content = (
       <div
         style={{
@@ -132,7 +179,7 @@ function Weather() {
           margin: "22px 0 13px 0",
         }}
       >
-        Loading weather for Chennai&hellip;
+        Loading live local weather&hellip;
       </div>
     );
   } else if (fetchError) {
@@ -140,12 +187,12 @@ function Weather() {
       <div
         style={{
           color: "var(--primary, #dc0000)",
-          background: "rgba(220,0,0,0.08)",
+          background: "rgba(220,0,0,0.07)",
           fontWeight: 600,
           borderRadius: 8,
           textAlign: "center",
           margin: "18px 0 13px 0",
-          padding: "14px 8px",
+          padding: "13px 8px",
           border: "1.2px solid var(--primary, #dc0000)",
         }}
       >
@@ -198,6 +245,13 @@ function Weather() {
             year: "numeric",
           })
         : "";
+    const location =
+      (w.name && typeof w.name === "string" && w.name.length > 0
+        ? w.name
+        : "your area") +
+      (w.sys && typeof w.sys.country === "string"
+        ? ", " + w.sys.country
+        : "");
 
     content = (
       <div className="cch-weather-main">
@@ -217,6 +271,9 @@ function Weather() {
           </div>
           <div className="cch-weather-desc" style={{ color: "var(--accent)" }}>
             {weatherDesc || weatherMain}
+          </div>
+          <div style={{ color: "var(--secondary)", fontSize: "0.97rem", marginTop: 4 }}>
+            {location}
           </div>
           <div className="cch-weather-details" style={{ color: "var(--secondary)", gap: 13 }}>
             {highF !== undefined && (
@@ -277,7 +334,7 @@ function Weather() {
       <section
         className="cch-section cch-weather"
         style={{
-          maxWidth: 450,
+          maxWidth: 470,
           margin: "0 auto",
           background: "var(--cch-card, #23243a)",
           borderRadius: "var(--cch-radius, 13px)",
@@ -286,7 +343,7 @@ function Weather() {
         }}
       >
         <h2 className="cch-section-title" style={{ color: "var(--accent, #0000dc)" }}>
-          Weather — Chennai
+          Local Weather
         </h2>
         {content}
         <div
