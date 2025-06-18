@@ -1,3 +1,6 @@
+// [DEPRECATED] - This file provided the old monolithic layout for CommunityConnect Hub.
+// See src/pages/*.js and src/components/Navbar.js for new modular design with routing.
+
 import React from "react";
 import "./CommunityConnectHub.css";
 

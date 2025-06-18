@@ -1,0 +1,49 @@
+.cch-navbar {
+  background: var(--cch-surface, #23243a);
+  color: var(--cch-text, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17px 30px 15px 32px;
+  border-bottom: 1.5px solid var(--cch-border, #2a2a42);
+  position: sticky;
+  top: 0;
+  z-index: 101;
+  box-shadow: var(--cch-shadow, 0 2px 8px rgba(0,0,0,0.11));
+}
+
+.cch-navbar-logo {
+  font-size: 1.35rem;
+  font-family: "Inter", "Roboto", Arial, sans-serif;
+  display: flex;
+  align-items: center;
+}
+
+.cch-navbar-links {
+  display: flex;
+  gap: 26px;
+}
+
+.cch-navbar-link {
+  color: var(--cch-text, #fff);
+  background: none;
+  border: none;
+  text-decoration: none;
+  font-size: 1.09rem;
+  font-weight: 500;
+  padding: 5px 0 4.5px 0;
+  transition: color 0.19s;
+  border-bottom: 2.5px solid transparent;
+  margin-right: 2px;
+}
+
+.cch-navbar-link.active {
+  color: var(--primary, #dc0000);
+  border-bottom: 2.5px solid var(--primary, #dc0000);
+}
+
+.cch-navbar-link:hover,
+.cch-navbar-link:focus {
+  color: var(--accent, #0000dc);
+  text-decoration: underline;
+}

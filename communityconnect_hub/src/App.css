@@ -4,6 +4,20 @@
   --text-color: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --border-color: rgba(255, 255, 255, 0.1);
+
+  /* CommunityConnect Hub dark theme colors */
+  --primary: #dc0000;
+  --secondary: #00dc00;
+  --accent: #0000dc;
+
+  --cch-bg: #151622;
+  --cch-surface: #23243a;
+  --cch-card: #23243a;
+  --cch-border: rgba(255,255,255,0.1);
+  --cch-text: #fff;
+  --cch-text-muted: #bbb;
+  --cch-radius: 13px;
+  --cch-shadow: 0 4px 12px rgba(0,0,0,0.18);
 }
 
 body {
