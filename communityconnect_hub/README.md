@@ -25,6 +25,27 @@ This plugin enables **visual editing functionality** in supported tools.
 **DO NOT** remove or modify this section - it is ESSENTIAL for proper operation.
 Removing it will break editor integration and visual editing features.
 
+## Environment Setup for News API
+
+To enable live news headlines, the Express backend must have access to your NewsAPI.org key.
+
+1. **Create a `.env` file in `communityconnect_hub/` (alongside `server.js`).**
+   - Use the sample below (or copy `.env.example` to `.env`):
+
+      ```
+      NEWS_API_KEY=737e634c6ef84eb4a280c96c4ec7815f
+      # (Replace with your personal NewsAPI.org key for production)
+      ```
+
+   - You can get your key at https://newsapi.org/
+
+2. **(Optional) Set a custom backend port**  
+      Add `PORT=5000` (or your preferred port) to `.env`.
+3. **Never commit your `.env` with real API keys.**  
+      `.env` is already included in `.gitignore`.
+
+The backend will fallback to the demo key if you do not set NEWS_API_KEY, but you may quickly hit usage limits.
+
 ## Getting Started
 
 In the project directory, you can run:
