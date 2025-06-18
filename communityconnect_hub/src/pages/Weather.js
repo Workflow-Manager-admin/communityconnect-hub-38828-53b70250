@@ -97,53 +97,12 @@ function Weather() {
   // ---------- UI Logic ----------
 
   let content = null;
-  if (geoStatus === "pending" || (loading && !weather)) {
+  if (loading && !weather) {
     content = (
       <div style={{
         color: "var(--cch-text-muted)", textAlign: "center", margin: "30px 0"
       }}>
-        {geoStatus === "pending"
-          ? "Initializing location and weather lookup…"
-          : "Detecting your location and fetching live weather…"}
-      </div>
-    );
-  } else if (geoStatus === "unsupported") {
-    content = (
-      <div style={{
-        color: "var(--primary)", fontWeight: 600, background: "rgba(220,0,0,0.1)",
-        borderRadius: 8, textAlign: "center", margin: "24px 0", padding: "16px 10px",
-        border: "1.2px solid var(--primary)"
-      }}>
-        <span role="img" aria-label="denied" style={{ fontSize: "1.27em", marginRight: 6 }}>
-          ⚠️
-        </span>
-        Geolocation is not supported on your device.
-      </div>
-    );
-  } else if (geoStatus === "denied") {
-    content = (
-      <div style={{
-        color: "var(--primary)", fontWeight: 600, background: "rgba(220,0,0,0.09)",
-        borderRadius: 8, textAlign: "center", margin: "26px 0", padding: "17px 11px",
-        border: "1.2px solid var(--primary)"
-      }}>
-        <span role="img" aria-label="denied" style={{ fontSize: "1.3em", marginRight: 6 }}>
-          ⚠️
-        </span>
-        Location permission denied. Unable to show live weather.
-      </div>
-    );
-  } else if (geoStatus === "error" && error) {
-    content = (
-      <div style={{
-        color: "var(--primary)", fontWeight: 600, background: "rgba(220,0,0,0.12)",
-        borderRadius: 8, textAlign: "center", margin: "19px 0", padding: "14px 9px",
-        border: "1.2px solid var(--primary)"
-      }}>
-        <span role="img" aria-label="error" style={{ fontSize: "1.23em", marginRight: 5 }}>
-          ⚠️
-        </span>
-        {error}
+        Loading live weather for Chennai…
       </div>
     );
   } else if (error && !weather) {
