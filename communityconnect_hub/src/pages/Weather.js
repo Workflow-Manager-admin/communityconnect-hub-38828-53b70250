@@ -1,29 +1,26 @@
 import React, { useEffect, useState } from "react";
 
 /**
- * Weather.js — CommunityConnect Hub Live Weather Page
- * 
- * Fetches current weather from OpenWeatherMap based on user's geolocated position.
- * Handles permission, error, and loading states, with dark-theme palette.
+ * Weather.js — CommunityConnect Hub Live Weather Page (Chennai only)
+ *
+ * Fetches current weather from OpenWeatherMap for Chennai using the provided API key,
+ * shows robust error/loading states, and applies dark theme with improved animation.
  */
 
 // PUBLIC_INTERFACE
 function Weather() {
-  /** 
-   * Prompts for geolocation, retrieves live weather, and renders all UI states per dark theme.
+  /**
+   * Fetches live weather for Chennai (no geolocation) and renders robust dark theme UI.
    */
-  const [coords, setCoords] = useState(null);          // { lat, lon }
-  const [geoStatus, setGeoStatus] = useState("pending"); // "pending", "success", "denied", "unsupported", "error"
-  const [weather, setWeather] = useState(null);        // OpenWeatherMap data
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");              // error string, if any
+  const [weather, setWeather] = useState(null);       // OpenWeatherMap data
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");             // error string, if any
 
-  // TODO: To use this app reliably, replace with your own OpenWeatherMap API key and
-  // keep it secure for production!
-  // For demo/testing—avoid usage limits—use a free/test API key as provided.
-  const API_KEY = "d0de3aed7ae9465a8c5e0342b340d5fd";
+  // Provided API key for OpenWeatherMap
+  const API_KEY = "5a4a7d9a78b645ee0616b15ce44cc6fd";
+  const CITY_NAME = "Chennai";
+  const COUNTRY_CODE = "IN";
 
-  // Map OpenWeather icon/main to simple emoji
   // PUBLIC_INTERFACE
   const emojiForWeather = (main, icon = "") => {
     /** Returns an emoji for current weather condition. */
@@ -51,92 +48,15 @@ function Weather() {
     }
   };
 
-  // ------------------- GEOLOCATION LOGIC ------------------- //
   useEffect(() => {
     let isMounted = true;
-    setCoords(null);
-    setGeoStatus("pending");
-    setError("");
-    setWeather(null);
-
-    if (!navigator.geolocation) {
-      setGeoStatus("unsupported");
-      setError("Geolocation is not supported by your browser.");
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-
-    // Defensive: wrap geolocation for browsers throwing immediately.
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (!isMounted) return;
-          setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-          setGeoStatus("success");
-          setLoading(false);
-        },
-        (err) => {
-          if (!isMounted) return;
-          if (err.code === 1) {
-            setGeoStatus("denied");
-            setError("Location access denied. Unable to retrieve weather for your area.");
-          } else if (err.code === 2) {
-            setGeoStatus("error");
-            setError("Unable to determine your location (position unavailable).");
-          } else if (err.code === 3) {
-            setGeoStatus("error");
-            setError("Location request timed out. Please try again.");
-          } else {
-            setGeoStatus("error");
-            setError("Could not retrieve your location.");
-          }
-          setLoading(false);
-        },
-        {
-          enableHighAccuracy: false, 
-          timeout: 10000,
-          maximumAge: 1000,
-        }
-      );
-    } catch (ex) {
-      setGeoStatus("error");
-      setError("A geolocation error occurred.");
-      setLoading(false);
-    }
-
-    return () => { isMounted = false; };
-  }, []);
-
-  // ------------------- WEATHER FETCH ------------------- //
-  useEffect(() => {
-    let isMounted = true;
-    if (!coords || geoStatus !== "success") return;
-
-    setLoading(true);
-    setError("");
     setWeather(null);
+    setError("");
 
-    const { lat, lon } = coords;
-
-    // Validate lat/lon
-    if (
-      typeof lat !== "number" ||
-      typeof lon !== "number" ||
-      isNaN(lat) ||
-      isNaN(lon) ||
-      lat < -90 ||
-      lat > 90 ||
-      lon < -180 ||
-      lon > 180
-    ) {
-      setError("Invalid geolocation received. Unable to fetch weather.");
-      setLoading(false);
-      return;
-    }
-
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+      CITY_NAME + "," + COUNTRY_CODE
+    )}&appid=${API_KEY}&units=metric`;
 
     fetch(url)
       .then((res) => {
@@ -145,7 +65,6 @@ function Weather() {
       })
       .then((data) => {
         if (!isMounted) return;
-        // Defensive checks for shape—prevent false success!
         if (
           !data ||
           data.cod !== 200 ||
@@ -159,7 +78,6 @@ function Weather() {
               : "Weather data unavailable."
           );
         }
-
         setWeather(data);
         setLoading(false);
       })
@@ -174,7 +92,7 @@ function Weather() {
       });
 
     return () => { isMounted = false; };
-  }, [coords, geoStatus]);
+  }, []);
 
   // ---------- UI Logic ----------
 
