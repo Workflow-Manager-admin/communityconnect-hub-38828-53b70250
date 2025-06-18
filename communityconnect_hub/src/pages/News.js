@@ -1,57 +1,72 @@
 import React, { useEffect, useState } from "react";
 
 /**
- * Fetches live local Chennai news headlines from NewsAPI.org using public/demo API key.
- * Displays headlines with error/loading state and applies CommunityConnect Hub's dark theme.
- * Note: For demonstration, uses NewsAPI public demo key. For production, use your own key.
+ * News.js — CommunityConnect Hub Live News Page (Chennai only)
+ *
+ * Fetches live news for Chennai from NewsAPI.org using the provided API key.
+ * Handles robust UI: loading, error, empty, and data states with modern dark theme & card animation.
+ * All mock/demo data is removed. Shows real news headlines and descriptions for Chennai.
  */
 
 // PUBLIC_INTERFACE
 function News() {
   /**
-   * Fetches and displays live Chennai news using NewsAPI.org (demo key).
-   * Dark mode, card-style, modern layout.
+   * Fetches and displays live Chennai news using NewsAPI.org and provided API key.
+   * Uses robust error/loading/data UI and CommunityConnect Hub's modern dark style.
    */
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
+  const [fetchError, setFetchError] = useState("");
 
-  // NewsAPI demo key and endpoint for Chennai; safe for public demo.
-  const API_KEY = "9f751c7a39ee44b9a3a040882c3b1263"; // See: https://newsapi.org/
+  // Use provided API key for NewsAPI
+  const API_KEY = "737e634c6ef84eb4a280c96c4ec7815f";
   const CITY_QUERY = "Chennai";
   const API_URL = `https://newsapi.org/v2/top-headlines?q=${encodeURIComponent(
     CITY_QUERY
-  )}&country=in&apiKey=${API_KEY}&pageSize=10`;
+  )}&country=in&apiKey=${API_KEY}&pageSize=12`;
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
-    setFetchError(null);
+    setArticles([]);
+    setFetchError("");
     fetch(API_URL)
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch news feed");
+        if (!res.ok) throw new Error("Failed to fetch live news feed.");
         return res.json();
       })
       .then((data) => {
-        if (!data.articles || data.status !== "ok") {
-          throw new Error("News data format error");
+        if (!isMounted) return;
+        if (!data.articles || !Array.isArray(data.articles) || data.status !== "ok") {
+          throw new Error("News data format error from NewsAPI.");
         }
         setArticles(data.articles);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (!isMounted) return;
         setFetchError(
-          "Unable to load news at this time. Please try again later."
+          err?.message
+            ? "Unable to load live news at this time. " + err.message
+            : "Unable to load live news at this time. Please try again later."
         );
         setLoading(false);
       });
-      // eslint-disable-next-line
+    return () => { isMounted = false; };
+    // eslint-disable-next-line
   }, []);
 
   let content;
   if (loading) {
     content = (
-      <div style={{ color: "var(--cch-text-muted)", textAlign: "center", marginTop: 17 }}>
-        Loading live news for Chennai...
+      <div style={{
+        color: "var(--cch-text-muted)",
+        textAlign: "center",
+        margin: "30px 0",
+        fontSize: "1.08rem",
+        fontStyle: "italic"
+      }}>
+        Fetching latest news for Chennai … <span role="status" style={{marginLeft:4}}>📰</span>
       </div>
     );
   } else if (fetchError) {
@@ -61,9 +76,13 @@ function News() {
           color: "var(--primary)",
           textAlign: "center",
           fontWeight: 600,
-          padding: "17px 0 5px 0",
-        }}
-      >
+          background: "rgba(220,0,0,0.07)",
+          borderRadius: "8px",
+          padding: "13px 9px",
+          margin: "19px 0 5px 0",
+          border: "1.2px solid var(--primary)"
+        }}>
+        <span role="img" aria-label="error" style={{ fontSize: "1.18em", marginRight: 4 }}>⚠️</span>
         {fetchError}
       </div>
     );
@@ -74,40 +93,48 @@ function News() {
           color: "var(--cch-text-muted)",
           textAlign: "center",
           fontStyle: "italic",
-          marginTop: 16,
-        }}
-      >
-        No current Chennai news stories found.
+          margin: "19px 0"
+        }}>
+        No recent news stories found for Chennai.
       </div>
     );
   } else {
-    // Show list of news using modern card/dark styles
+    // UI for article list
     content = (
       <ul className="cch-news-list">
-        {articles.map((item, idx) => (
-          <li className="cch-news-article" key={idx}>
+        {articles.map((news, idx) => (
+          <li className="cch-news-article"
+              key={news.url || news.title || idx}
+              style={{ animationDelay: `${0.05 * idx}s` }}
+          >
             <a
-              href={item.url}
+              href={news.url}
               className="cch-news-title"
+              tabIndex={0}
               target="_blank"
               rel="noopener noreferrer"
-              tabIndex={0}
+              style={{
+                color: "var(--primary)",
+                textDecoration: "none"
+              }}
             >
-              {item.title}
+              {news.title}
             </a>
-            {item.description && (
-              <span className="cch-news-summary">{item.description}</span>
+            {news.description && (
+              <span className="cch-news-summary">{news.description}</span>
             )}
             <div className="cch-news-meta">
-              <span className="cch-news-source">
-                {item.source?.name || "News"}
-              </span>
+              {news.source?.name && (
+                <span className="cch-news-source">{news.source.name}</span>
+              )}
               <span className="cch-news-date">
-                {item.publishedAt
-                  ? new Date(item.publishedAt).toLocaleDateString(undefined, {
+                {news.publishedAt
+                  ? new Date(news.publishedAt).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })
                   : ""}
               </span>
@@ -122,25 +149,32 @@ function News() {
     <div className="cch-content" style={{ paddingTop: 50 }}>
       <section
         className="cch-section cch-news"
-        style={{ maxWidth: 550, margin: "0 auto" }}
+        style={{
+          maxWidth: 550,
+          margin: "0 auto",
+          background: "var(--cch-card,#23243a)",
+          borderRadius: "var(--cch-radius,13px)",
+          boxShadow: "var(--cch-shadow,0 4px 12px rgba(0,0,0,0.18))",
+          border: "1.5px solid var(--cch-border,rgba(255,255,255,0.1))"
+        }}
       >
         <h2 className="cch-section-title" style={{ color: "var(--primary)" }}>
-          News Feed
+          Latest Chennai Headlines
         </h2>
         {content}
         <div
           style={{
-            marginTop: 20,
+            marginTop: 22,
             textAlign: "right",
-            fontSize: "0.91rem",
-            color: "var(--cch-text-muted)",
+            fontSize: "0.93rem",
+            color: "var(--cch-text-muted)"
           }}
         >
           Data powered by{" "}
           <a
             href="https://newsapi.org/"
-            style={{ color: "var(--accent)" }}
             tabIndex={-1}
+            style={{ color: "var(--accent)" }}
             target="_blank"
             rel="noopener noreferrer"
           >
