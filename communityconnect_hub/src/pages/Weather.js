@@ -48,6 +48,7 @@ function Weather() {
 
   // Ask user for geolocation on mount
   useEffect(() => {
+    let isMounted = true;
     setCoords(null);
     setGeoStatus("pending");
     setError("");
@@ -56,15 +57,19 @@ function Weather() {
     if (!navigator.geolocation) {
       setGeoStatus("unsupported");
       setError("Geolocation is not supported by your browser.");
+      setLoading(false);
       return;
     }
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (!isMounted) return;
         setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
         setGeoStatus("success");
+        setLoading(false);
       },
       (err) => {
+        if (!isMounted) return;
         if (
           err.code === 1 // PERMISSION_DENIED
         ) {
@@ -88,11 +93,15 @@ function Weather() {
         maximumAge: 1000,
       }
     );
+    // Cleanup if component unmounts
+    return () => { isMounted = false; };
   }, []);
 
   // Fetch weather after coords acquired
   useEffect(() => {
+    let isMounted = true;
     if (!coords || geoStatus !== "success") return;
+
     setLoading(true);
     setError("");
     setWeather(null);
@@ -106,6 +115,7 @@ function Weather() {
         return res.json();
       })
       .then((data) => {
+        if (!isMounted) return;
         if (!data || data.cod !== 200) {
           throw new Error(
             typeof data?.message === "string"
@@ -117,6 +127,7 @@ function Weather() {
         setLoading(false);
       })
       .catch((err) => {
+        if (!isMounted) return;
         setError(
           err?.message
             ? String(err.message)
@@ -124,7 +135,8 @@ function Weather() {
         );
         setLoading(false);
       });
-    // eslint-disable-next-line
+    // cleanup if component unmounts before fetch finishes
+    return () => { isMounted = false; };
   }, [coords, geoStatus]);
 
   // ---------- UI Logic ----------
@@ -134,7 +146,9 @@ function Weather() {
       <div style={{
         color: "var(--cch-text-muted)", textAlign: "center", margin: "30px 0"
       }}>
-        Detecting your location and fetching live weather…
+        {geoStatus === "pending"
+          ? "Initializing location and weather lookup…"
+          : "Detecting your location and fetching live weather…"}
       </div>
     );
   } else if (geoStatus === "unsupported") {
